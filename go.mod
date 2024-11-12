@@ -1,6 +1,6 @@
 module github.com/Taslim-M/GO_CS6221
 
-go 1.23.0
+go 1.23
 
 require (
 	github.com/r9y9/gossp v0.0.1

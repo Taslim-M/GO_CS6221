@@ -7,8 +7,10 @@ import (
 	"github.com/r9y9/gossp/stft"
 	"github.com/r9y9/gossp/window"
 	"github.com/schollz/progressbar/v3"
+	"log"
 	"math"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 )
@@ -60,6 +62,56 @@ func main() {
 	defer w.Close()
 	n, werr := w.WriteString(output)
 	fmt.Printf("Wrote %d bytes to %s\n", n, writeFileName)
+
+	// Create gnuplot of STFT values
+	createGnuplot(writeFileName)
+}
+
+// Function to create a heatmap using Gnuplot
+// Requires the filename of the file containing the STFT values created by matrixAsGnuplotFormat
+// Creates a heatmap of the STFT values and saves it as a .png file
+func createGnuplot(filename string) {
+	// Replace .txt with .png for output file name
+	plotFile := strings.Replace(filename, ".txt", ".png", 1)
+
+	// Create a temporary file for the Gnuplot script
+	scriptFile, err := os.CreateTemp("", "gnuplot-script-*.gp")
+	if err != nil {
+		log.Fatalf("Failed to create temporary script file: %v", err)
+	}
+	defer os.Remove(scriptFile.Name()) // Clean up the script file after running Gnuplot
+
+	// Write the Gnuplot script to the temporary file
+	// For some reason gnuplot prefers using a temp file instead of the already written file
+	scriptContent := fmt.Sprintf(`
+set terminal png size 800,600
+set output "%s"
+set view map
+set xlabel "X"
+set ylabel "Y"
+set cblabel "Z"
+set palette rgbformulae 33,13,10
+set pm3d interpolate 0,0
+splot "%s" using 1:2:3 with pm3d notitle
+`, plotFile, filename)
+	if _, err := scriptFile.WriteString(scriptContent); err != nil {
+		log.Fatalf("Failed to write to temporary script file: %v", err)
+	}
+	scriptFile.Close() // Ensure content is flushed to disk
+
+	// Execute Gnuplot with the script file
+	fmt.Println("Creating heatmap using Gnuplot...")
+	bar := progressbar.Default(-1, "Creating Gnuplot heatmap")
+	cmd := exec.Command("gnuplot", scriptFile.Name())
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		bar.Finish()
+		log.Fatalf("Failed to run Gnuplot: %v", err)
+	}
+	bar.Finish()
+	fmt.Printf("Heatmap generated and saved as %s\n", plotFile)
 }
 
 // Function to convert the STFT matrix to a gnuplot format (x y z) to be written to a file
@@ -72,8 +124,8 @@ func matrixAsGnuplotFormat(matrix *[][]float64) string {
 	samples := rows * cols
 	fmt.Printf("Computing amplitude of %d samples using %d goroutines...\n", samples, rows)
 
-	results := make([]string, rows*cols)           // Preallocate results to ensure correct order
-	bar := progressbar.Default(int64(rows * cols)) // Progress bar to show progress of computation
+	results := make([]string, rows*cols)                            // Preallocate results to ensure correct order
+	bar := progressbar.Default(int64(rows*cols), "Performing STFT") // Progress bar to show progress of computation
 
 	var wg sync.WaitGroup
 	// Mutex for vec is not required -- it isn't being written to
@@ -96,10 +148,13 @@ func matrixAsGnuplotFormat(matrix *[][]float64) string {
 	wg.Wait() // Wait for all goroutines to finish
 	fmt.Printf("All %d goroutines have finished computing amplitude\n", rows)
 
-	// Concatenate results in order
+	// Concatenate results with blank lines between rows
 	outputBuilder := strings.Builder{}
-	for _, line := range results {
+	for i, line := range results {
 		outputBuilder.WriteString(line)
+		if (i+1)%cols == 0 {
+			outputBuilder.WriteString("\n") // Add blank line after each row
+		}
 	}
 	return outputBuilder.String()
 }
