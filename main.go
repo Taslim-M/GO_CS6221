@@ -1,19 +1,53 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"math"
+	"net/http"
+	"os"
+	"os/exec"
+	"strings"
+	"sync"
+
+	"github.com/gin-gonic/gin"
 	"github.com/r9y9/gossp"
 	"github.com/r9y9/gossp/io"
 	"github.com/r9y9/gossp/stft"
 	"github.com/r9y9/gossp/window"
 	"github.com/schollz/progressbar/v3"
-	"log"
-	"math"
-	"os"
-	"os/exec"
-	"strings"
-	"sync"
 )
+
+func main() {
+	router := gin.Default()
+
+	// Serve index.html at the default route
+	router.GET("/", func(c *gin.Context) {
+		c.File("./index.html")
+	})
+
+	// Handle POST request to process file and return base64 image
+	router.POST("/", func(c *gin.Context) {
+		// Get the filename from the form data
+		filename := c.PostForm("filename")
+		if filename == "" {
+			c.String(http.StatusBadRequest, "Filename is required")
+			return
+		}
+		fmt.Printf("Attempting to read %s\n", filename)
+		// Simulate processing and return a sample base64-encoded image for demonstration
+		// Replace this logic with actual MFCC processing and image generation
+		perform_mfcc(filename)
+		dummyImage, _ := ioutil.ReadFile("image.png")
+		base64Image := base64.StdEncoding.EncodeToString(dummyImage)
+
+		c.String(http.StatusOK, base64Image)
+	})
+
+	router.Run(":8080") // Start server on port 8080
+}
 
 // Function to check for errors while reading and writing files
 func check(e error) {
@@ -22,13 +56,8 @@ func check(e error) {
 	}
 }
 
-func main() {
-	// Check arguments
-	if len(os.Args) != 2 {
-		fmt.Println("Please provide a file: 'go run main.go <filename>.wav'")
-		return
-	}
-	filename := os.Args[1]
+func perform_mfcc(filename string) {
+
 	if !strings.HasSuffix(filename, ".wav") {
 		// Invalid file format -- Can only process .wav files
 		fmt.Println("Please provide a filename in the format 'go run main.go <filename>.wav'")
@@ -55,7 +84,8 @@ func main() {
 	output := matrixAsGnuplotFormat(&spectrogram) // Convert the STFT to a gnuplot format (x y z)
 
 	// Write the output of the STFT to a file
-	writeFileName := fmt.Sprintf("STFT-%s.txt", filename) // <filename>.wav -> STFT-<filename>.wav.txt
+	// writeFileName := fmt.Sprintf("STFT-%s.txt", filename) // <filename>.wav -> STFT-<filename>.wav.txt
+	writeFileName := fmt.Sprintf("image.txt") // <filename>.wav -> STFT-<filename>.wav.txt
 	fmt.Printf("Attempting to write STFT values to %s\n", writeFileName)
 	w, werr := os.Create(writeFileName)
 	check(werr)
