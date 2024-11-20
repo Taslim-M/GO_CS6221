@@ -18,6 +18,7 @@ func main() {
 
 	// Serve index.html at the default route
 	router.GET("/", func(c *gin.Context) {
+		deleteFiles(filesToDelete)
 		c.File("./index.html")
 	})
 
@@ -33,7 +34,7 @@ func main() {
 		// Simulate processing and return a sample base64-encoded image for demonstration
 		// Replace this logic with actual MFCC processing and image generation
 
-		perform_mfcc(filename)
+		perform_stft_pipeline(filename)
 		dummyImage, _ := ioutil.ReadFile("image.png")
 		base64Image := base64.StdEncoding.EncodeToString(dummyImage)
 
@@ -57,9 +58,11 @@ func main() {
 	router.Run(":8080") // Start server on port 8080
 }
 
-// Function to check for errors while reading and writing files
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
+// func main() {
+
+// 	// Get the filename from the form data
+// 	filename := "audio_gettysburg10.wav"
+
+// 	perform_stft_standalone(filename)
+
+// }
