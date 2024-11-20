@@ -106,8 +106,8 @@ This project is shared for educational purposes and is part of CS 6221 coursewor
 ---
 
 ### Screenshots
-<img src="screenshots/spec.png" width="800px" align="center" />
+<img src="screenshots/spec.PNG" width="800px" align="center" />
 
-<img src="screenshots/audio.png" width="800px" align="center" />
+<img src="screenshots/audio.PNG" width="800px" align="center" />
 
 ---
